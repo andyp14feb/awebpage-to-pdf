@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: awebpage-to-pdf-api
+    ports:
+      - "8000:8000"
+    environment:
+      - SQLITE_DB_PATH=/data/app.db
+      - PDF_STORAGE_PATH=/data/pdfs
+      - DEFAULT_RENDER_MODE=print_to_pdf
+      - NAVIGATION_TIMEOUT_SECONDS=45
+      - JOB_TIMEOUT_SECONDS=120
+      - MAX_DOMAIN_WAIT_SECONDS=600
+      - MAX_RETRIES=2
+      - CLEANUP_INTERVAL_SECONDS=1020
+      - CLEANUP_FILE_AGE_SECONDS=1020
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - LOG_LEVEL=INFO
+    volumes:
+      - pdf-data:/data
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: awebpage-to-pdf-worker
+    environment:
+      - SQLITE_DB_PATH=/data/app.db
+      - PDF_STORAGE_PATH=/data/pdfs
+      - DEFAULT_RENDER_MODE=print_to_pdf
+      - NAVIGATION_TIMEOUT_SECONDS=45
+      - JOB_TIMEOUT_SECONDS=120
+      - MAX_DOMAIN_WAIT_SECONDS=600
+      - MAX_RETRIES=2
+      - WORKER_POLL_INTERVAL_SECONDS=2
+      - LOG_LEVEL=INFO
+    volumes:
+      - pdf-data:/data
+    restart: unless-stopped
+    depends_on:
+      - api
+
+volumes:
+  pdf-data:
