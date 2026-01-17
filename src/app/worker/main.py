@@ -54,10 +54,6 @@ class Worker:
         """Handle shutdown signals."""
         logger.info(f"Received signal {signum}, shutting down gracefully...")
         self.running = False
-    
-from app.security.url_validator import validate_redirects, SSRFError
-
-# ... (inside Worker class)
 
     async def process_job(self, job: Job) -> tuple[bool, Optional[str], Optional[str]]:
         """
