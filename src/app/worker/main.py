@@ -127,16 +127,40 @@ from app.security.url_validator import validate_redirects, SSRFError
     
     async def run(self):
         """Main worker loop."""
-        # ... (initialization code) ...
+        logger.info("Starting worker")
+        
+        # Setup signal handlers
+        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGTERM, self.signal_handler)
+        
+        # Ensure directories exist
+        settings.ensure_directories()
+        
+        # Initialize database
+        init_db()
+        
+        # Initialize render service
+        await render_service.initialize()
+        
+        self.running = True
+
+        # Start heartbeat loop
+        asyncio.create_task(self.heartbeat_loop())
         
         try:
             while self.running:
                 try:
                     # Claim next job
-                    # ... (claim logic) ...
+                    with get_db_context() as db:
+                        job = QueueService.claim_next_job(db)
+                        if job:
+                            # Refresh to load all attributes and make object independent of session
+                            db.refresh(job)
+                            db.expunge(job)
                     
                     if not job:
-                        # ... (wait logic) ...
+                        # No jobs available, wait
+                        await asyncio.sleep(settings.worker_poll_interval_seconds)
                         continue
                     
                     # Process job
@@ -160,10 +184,6 @@ from app.security.url_validator import validate_redirects, SSRFError
                                     error_code=error_code or 'RENDER_FAILED',
                                     error_message=error_message or 'Unknown error'
                                 )
-                
-                except Exception as e:
-                    logger.error(f"Error in worker loop: {e}", exc_info=True)
-                    await asyncio.sleep(5)
                 
                 except Exception as e:
                     logger.error(f"Error in worker loop: {e}", exc_info=True)
